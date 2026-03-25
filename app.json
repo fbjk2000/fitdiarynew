@@ -16,7 +16,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.fitdiary"
+      "bundleIdentifier": "fitdiary.fintery"
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +24,7 @@
         "backgroundColor": "#0f0a1f",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "package": "com.yourcompany.fitdiary"
+      "package": "fitdiary.fintery"
     },
     "web": {
       "favicon": "./assets/favicon.png"
