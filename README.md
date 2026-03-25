@@ -147,6 +147,51 @@ npm run ios
 npm run web
 ```
 
+## TestFlight Readiness
+
+This repository now includes an [`eas.json`](./eas.json) file for Expo Application Services builds.
+
+### Before shipping to TestFlight
+
+You should still update the production iOS metadata in [`app.json`](./app.json):
+
+- set the final `ios.bundleIdentifier`
+- set the final `android.package`
+- replace the placeholder `extra.eas.projectId` after linking the Expo project
+
+### Typical TestFlight flow
+
+1. Log in to Expo:
+
+```powershell
+npx eas login
+```
+
+2. Configure EAS for the project if needed:
+
+```powershell
+npx eas init
+```
+
+3. Build the iOS production binary:
+
+```powershell
+npx eas build -p ios --profile production
+```
+
+4. Submit the build to App Store Connect / TestFlight:
+
+```powershell
+npx eas submit -p ios --profile production
+```
+
+### Notes
+
+- Apple Developer access is required
+- App Store Connect must already contain the target app record
+- credentials and signing can be managed through Expo during `eas build`
+- the current repo is ready for EAS config, but still needs final App Store identifiers
+
 ## Validation
 
 Type-check the project with:
