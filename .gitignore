@@ -5,9 +5,9 @@ node_modules/
 
 # Expo
 .expo/
+.expo-start*.log
 dist/
 web-build/
-expo-env.d.ts
 
 # Native
 .kotlin/
@@ -39,3 +39,10 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Browser worker artifacts
+browser-worker/output/
+browser-worker/sessions/
+
+# local editor settings
+.vscode/
