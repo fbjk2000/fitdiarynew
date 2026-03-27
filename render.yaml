@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: fitdiary-vision-proxy
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: HF_TOKEN
+        sync: false
+      - key: FITDIARY_VISION_MODEL
+        value: Qwen/Qwen2.5-VL-7B-Instruct
+      - key: FITDIARY_VISION_BASE_URL
+        value: https://router.huggingface.co/v1/chat/completions

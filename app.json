@@ -37,6 +37,22 @@
         "projectId": "d72b4a36-38da-4164-81d3-25cbcd0c1ce5"
       }
     },
-    "owner": "fbjk2000ai"
+    "owner": "fbjk2000ai",
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "FitDiary uses your photo library so you can add meal photos and profile pictures.",
+          "cameraPermission": "FitDiary uses your camera so you can snap meal photos and estimate nutrition."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#ff7a5c"
+        }
+      ]
+    ]
   }
 }

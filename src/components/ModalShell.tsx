@@ -1,5 +1,13 @@
 import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { styles } from '../styles/appStyles';
 
 type ModalShellProps = {
@@ -12,20 +20,41 @@ type ModalShellProps = {
 
 export function ModalShell({ eyebrow, title, children, onClose, onSave }: ModalShellProps) {
   return (
-    <View style={styles.modalBackdrop}>
-      <View style={styles.modalSheet}>
-        <Text style={styles.modalEyebrow}>{eyebrow}</Text>
-        <Text style={styles.modalTitle}>{title}</Text>
-        {children}
-        <View style={styles.modalActions}>
-          <TouchableOpacity style={styles.modalGhost} onPress={onClose}>
-            <Text style={styles.modalGhostText}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.modalPrimary} onPress={onSave}>
-            <Text style={styles.modalPrimaryText}>Save</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
+    <KeyboardAvoidingView
+      style={styles.modalKeyboardWrap}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 18 : 0}
+    >
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable style={styles.modalSheet} onPress={(event) => event.stopPropagation()}>
+          <View style={styles.modalHandle} />
+          <View style={styles.modalHeaderRow}>
+            <View style={styles.modalHeaderCopy}>
+              <Text style={styles.modalEyebrow}>{eyebrow}</Text>
+              <Text style={styles.modalTitle}>{title}</Text>
+            </View>
+            <TouchableOpacity style={styles.modalCloseButton} onPress={onClose}>
+              <Text style={styles.modalCloseButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView
+            style={styles.modalScroll}
+            contentContainerStyle={styles.modalScrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {children}
+          </ScrollView>
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={styles.modalGhost} onPress={onClose}>
+              <Text style={styles.modalGhostText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalPrimary} onPress={onSave}>
+              <Text style={styles.modalPrimaryText}>Save</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </KeyboardAvoidingView>
   );
 }

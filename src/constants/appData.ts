@@ -1,4 +1,4 @@
-import { MealDraft, Tab, Workout, WorkoutDraft } from '../types/app';
+import { GoalType, MealDraft, ReminderSettings, Tab, UserPreferences, Workout, WorkoutDraft } from '../types/app';
 
 export const STORAGE_KEYS = {
   user: 'fitdiary.user',
@@ -6,6 +6,8 @@ export const STORAGE_KEYS = {
   meals: 'fitdiary.meals',
   waterIntake: 'fitdiary.waterIntake',
   waterDate: 'fitdiary.waterDate',
+  friends: 'fitdiary.friends',
+  preferences: 'fitdiary.preferences',
 } as const;
 
 export const EMPTY_WORKOUT: WorkoutDraft = {
@@ -21,7 +23,26 @@ export const EMPTY_MEAL: MealDraft = {
   protein: '',
   carbs: '',
   fat: '',
+  estimateSource: 'manual',
 };
+
+export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
+  workoutTime: '07:30',
+  fuelTime: '12:30',
+  hydrationTime: '09:00',
+};
+
+export const DEFAULT_PREFERENCES: UserPreferences = {
+  primaryGoal: 'improve-cardio',
+  reminderSettings: DEFAULT_REMINDER_SETTINGS,
+};
+
+export const goalOptions: Array<{ key: GoalType; title: string; description: string }> = [
+  { key: 'lose-weight', title: 'Lose weight', description: 'Focus on consistent movement, hydration, and cleaner fueling.' },
+  { key: 'improve-cardio', title: 'Improve cardio fitness', description: 'Prioritize conditioning sessions and steady weekly output.' },
+  { key: 'recover', title: 'Recover', description: 'Use mobility, hydration, and lighter fueling to rebuild rhythm.' },
+  { key: 'build-strength', title: 'Build strength', description: 'Lean into strength sessions and recovery consistency.' },
+];
 
 export const workoutLibrary: Array<Omit<Workout, 'date'>> = [
   { id: '1', name: 'Velocity Run', type: 'cardio', duration: '30', calories: '300' },

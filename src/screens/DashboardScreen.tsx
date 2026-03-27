@@ -1,9 +1,9 @@
 import React from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { workoutLibrary } from '../constants/appData';
 import { styles } from '../styles/appStyles';
-import { LeaderboardEntry, Workout } from '../types/app';
-import { accentForWorkout } from '../utils/appHelpers';
+import { GoalProgress, LeaderboardEntry, Workout } from '../types/app';
+import { accentForWorkout, initialsFromName } from '../utils/appHelpers';
 
 type DashboardScreenProps = {
   firstName: string;
@@ -15,6 +15,7 @@ type DashboardScreenProps = {
   waterIntake: number;
   todayWorkoutCalories: number;
   todayMealCalories: number;
+  goalProgress: GoalProgress;
   leaderboard: LeaderboardEntry[];
   onAddWater: (amount: number) => void;
   onOpenWorkoutCreate: () => void;
@@ -33,6 +34,7 @@ export function DashboardScreen(props: DashboardScreenProps) {
     waterIntake,
     todayWorkoutCalories,
     todayMealCalories,
+    goalProgress,
     leaderboard,
     onAddWater,
     onOpenWorkoutCreate,
@@ -75,6 +77,17 @@ export function DashboardScreen(props: DashboardScreenProps) {
               <Text style={styles.metricLabel}>{item.label}</Text>
             </View>
           ))}
+        </View>
+      </View>
+
+      <View style={styles.panel}>
+        <View style={styles.panelRow}>
+          <Text style={styles.panelTitle}>{goalProgress.title}</Text>
+          <Text style={styles.panelMeta}>{Math.round(goalProgress.progress)}%</Text>
+        </View>
+        <Text style={styles.profileBody}>{goalProgress.body}</Text>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${Math.min(goalProgress.progress, 100)}%` }]} />
         </View>
       </View>
 
@@ -144,11 +157,18 @@ export function DashboardScreen(props: DashboardScreenProps) {
             <View style={styles.leaderRank}>
               <Text style={styles.leaderRankText}>{index + 1}</Text>
             </View>
+            <View style={styles.leaderAvatar}>
+              {entry.avatarUri ? (
+                <Image source={{ uri: entry.avatarUri }} style={styles.leaderAvatarImage} />
+              ) : (
+                <Text style={styles.leaderAvatarFallback}>{initialsFromName(entry.name)}</Text>
+              )}
+            </View>
             <View style={styles.leaderMain}>
               <Text style={[styles.leaderName, entry.isCurrentUser && styles.leaderNameCurrent]}>
                 {entry.isCurrentUser ? `${entry.name} (You)` : entry.name}
               </Text>
-              <Text style={styles.leaderMeta}>{entry.subtitle} · {entry.streak} day streak</Text>
+              <Text style={styles.leaderMeta}>{entry.subtitle} | {entry.streak} day streak</Text>
             </View>
             <Text style={styles.leaderScore}>{entry.score}</Text>
           </View>

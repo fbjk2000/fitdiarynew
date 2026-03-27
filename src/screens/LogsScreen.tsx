@@ -1,5 +1,5 @@
 import React from 'react';
-import { FlatList, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, Text, TouchableOpacity, View } from 'react-native';
 import { styles } from '../styles/appStyles';
 import { Meal, Workout } from '../types/app';
 import { accentForWorkout } from '../utils/appHelpers';
@@ -49,7 +49,7 @@ export function WorkoutsScreen({ workouts, onOpenCreate, onEdit, onDelete }: Wor
             <View style={[styles.entryStripe, { backgroundColor: accentForWorkout(item.type) }]} />
             <View style={styles.entryMain}>
               <Text style={styles.entryTitle}>{item.name}</Text>
-              <Text style={styles.entryMeta}>{item.type} · {item.duration} min · {item.calories} cal</Text>
+              <Text style={styles.entryMeta}>{item.type} | {item.duration} min | {item.calories} cal</Text>
               <Text style={styles.entryDate}>{new Date(item.date).toLocaleDateString()}</Text>
             </View>
             <View style={styles.entryActions}>
@@ -82,10 +82,14 @@ export function MealsScreen({ meals, onOpenCreate, onEdit, onDelete }: MealsScre
         renderItem={({ item }) => (
           <View style={styles.entryCard}>
             <View style={[styles.entryStripe, { backgroundColor: '#59d4a8' }]} />
+            {item.photoUri ? <Image source={{ uri: item.photoUri }} style={styles.entryThumbnail} /> : null}
             <View style={styles.entryMain}>
               <Text style={styles.entryTitle}>{item.name}</Text>
-              <Text style={styles.entryMeta}>P {item.protein || 0}g · C {item.carbs || 0}g · F {item.fat || 0}g</Text>
-              <Text style={styles.entryDate}>{item.calories} cal · {new Date(item.date).toLocaleDateString()}</Text>
+              <Text style={styles.entryMeta}>P {item.protein || 0}g | C {item.carbs || 0}g | F {item.fat || 0}g</Text>
+              <Text style={styles.entryDate}>
+                {item.calories} cal | {new Date(item.date).toLocaleDateString()}
+                {item.estimateSource === 'vision' ? ' | photo estimate' : item.estimateSource === 'heuristic' ? ' | suggested' : ''}
+              </Text>
             </View>
             <View style={styles.entryActions}>
               <TouchableOpacity style={styles.editButton} onPress={() => onEdit(item)}>
