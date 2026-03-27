@@ -1,19 +1,51 @@
 # FitDiary
 
-FitDiary is an Expo + React Native fitness tracker focused on fast daily logging for workouts, meals, hydration, streak momentum, goals, reminders, and a growing social layer.
+FitDiary is an Expo + React Native fitness tracker built for fast daily logging, clear progress visibility, and a more social fitness experience. The app currently supports workouts, meals, hydration, streaks, reminders, goals, profile photos, friend-circle invites, and an AI-ready meal photo estimation flow.
 
-## Current Product Surface
+## Product Overview
 
-- Local account sign-in for device-based profiles
+FitDiary is designed around a simple loop:
+
+1. Log workouts, meals, and hydration quickly.
+2. Stay consistent through streaks, goals, and reminders.
+3. Build a friend circle and compare progress on the leaderboard.
+4. Reduce meal logging friction with nutrition suggestions and photo-based estimation.
+
+The current app is local-first on the device, with backend-ready foundations for social sync and AI meal-photo analysis.
+
+## Current Features
+
+### Core Tracking
+
 - Workout logging with create, edit, and delete flows
-- Meal logging with create, edit, delete, and nutrition suggestion flows
-- Meal photo capture/upload with an AI-ready estimate pipeline
-- Hydration tracking with a daily progress bar
-- Streak calculation derived from workout history
-- Goals and visible progress tracking
-- Daily reminders for workouts, fuel, and hydration
-- Profile photos and leaderboard avatars
-- Friend-circle invites and a local social leaderboard
+- Meal logging with create, edit, and delete flows
+- Hydration tracking with daily progress
+- Daily streak calculation based on workout history
+- Goal selection with local progress feedback
+- Reminder scheduling for workouts, fuel, and hydration
+
+### UX and Personalization
+
+- Cutting-edge dark visual system with branded cards and strong hierarchy
+- Keyboard-safe bottom-sheet style modals
+- Profile photo upload
+- Unit-aware placeholders such as `Calories (kcal)` and `Protein (g)`
+- Heuristic meal suggestions for common foods when users do not know the macros
+
+### Social Layer
+
+- Friend-circle invite flow
+- Native share support for WhatsApp and other apps
+- Leaderboard with avatar support
+- Local active vs pending friend states
+
+### AI Meal Photo Flow
+
+- Take a meal photo or choose one from the library
+- Preview the image before saving
+- Send the photo to a backend proxy for nutrition estimation
+- Prefill meal name, calories, protein, carbs, and fat
+- Graceful fallback when the photo service is unavailable
 
 ## Tech Stack
 
@@ -23,7 +55,9 @@ FitDiary is an Expo + React Native fitness tracker focused on fast daily logging
 - TypeScript
 - AsyncStorage for local persistence
 - `expo-image-picker` for profile and meal photos
-- `expo-notifications` for local reminder scheduling
+- `expo-notifications` for reminders
+- Expo EAS for iOS builds and TestFlight
+- Node.js backend proxy for AI meal-photo estimation
 
 ## Project Structure
 
@@ -31,9 +65,15 @@ FitDiary is an Expo + React Native fitness tracker focused on fast daily logging
 FitDiary/
 |-- App.tsx
 |-- app.json
-|-- assets/
+|-- eas.json
+|-- Dockerfile
+|-- render.yaml
 |-- server/
 |   `-- vision-proxy.mjs
+|-- scripts/
+|   |-- load-env-and-run.ps1
+|   |-- start-expo-env.ps1
+|   `-- start-vision-server.ps1
 |-- src/
 |   |-- components/
 |   |   `-- ModalShell.tsx
@@ -54,168 +94,54 @@ FitDiary/
 |   |   `-- app.ts
 |   `-- utils/
 |       `-- appHelpers.ts
+|-- assets/
 |-- package.json
 `-- tsconfig.json
 ```
 
-## Features
+## Local Data Model
 
-### Authentication
+The app currently stores data locally with user-scoped AsyncStorage keys. This prevents one local profile from inheriting another profile's records on the same device.
 
-Authentication is local-only today and acts as a lightweight device profile rather than a backend identity system.
-
-### Dashboard
-
-The dashboard surfaces:
-
-- today’s workout calories
-- today’s meal calories
-- hydration progress
-- streak status
-- quick actions
-- workout shortcuts
-- goal progress
-- leaderboard preview
-
-### Workouts
-
-Users can:
-
-- create workouts
-- edit workouts
-- delete workouts with confirmation
-
-Workout streaks are calculated from saved workout dates rather than a fragile “last workout” shortcut.
-
-### Meals
-
-Users can:
-
-- create meals
-- edit meals
-- delete meals with confirmation
-- get heuristic nutrition suggestions for common foods
-- attach a meal photo
-- run an AI-ready photo estimate flow when a backend endpoint is configured
-
-### Hydration
-
-Hydration is tracked locally per user profile and resets daily when reloaded on a new day.
-
-### Goals
-
-Users can choose a primary goal such as:
-
-- lose weight
-- improve cardio fitness
-- recover
-- build strength
-
-FitDiary shows local progress toward that goal based on current activity patterns.
-
-### Reminders
-
-Users can set local daily reminders for:
-
-- workouts
-- fuel intake
-- hydration
-
-### Leaderboard
-
-The leaderboard now supports:
-
-- friend-circle invites
-- active and pending friend states
-- profile avatar display
-- current-user highlighting
-
-It is still not a true backend-synced competition layer yet.
-
-## Local Persistence
-
-FitDiary uses AsyncStorage and scopes data by user email for:
+Persisted local data includes:
 
 - workouts
 - meals
-- water intake
-- water day key
+- hydration amount
+- hydration day key
 - friend-circle members
-- goals and reminder preferences
+- reminder settings
+- selected goal
+- signed-in local user profile
 
-This prevents one local profile from inheriting another profile’s saved activity on the same device.
+## AI Meal Photo Architecture
 
-## Fuel Photo MVP
+The app does not call a hosted vision model directly from the device. Instead, it uses a small backend proxy so secrets stay on the server.
 
-FitDiary now includes a meal-photo flow in the mobile app.
+### App Side
 
-What it does today:
-
-- lets the user take a photo or choose one from the library
-- previews the image in the meal modal
-- can call a backend endpoint to estimate meal label, calories, protein, carbs, and fat
-- stores the image URI and estimate source alongside the logged meal
-
-### Why there is a backend proxy
-
-The app intentionally does not call a hosted vision model directly with a secret token from the mobile client.
-
-Instead, the mobile app expects a public endpoint via:
+The mobile app expects:
 
 ```text
 EXPO_PUBLIC_FITDIARY_VISION_ENDPOINT
 ```
 
-and the backend proxy holds the real provider token.
+This endpoint is used by [`src/services/fuelVision.ts`](./src/services/fuelVision.ts).
 
-### Included proxy
+### Server Side
 
-This repo includes a minimal Node proxy:
+The repo includes a Node proxy in [`server/vision-proxy.mjs`](./server/vision-proxy.mjs).
 
-[`server/vision-proxy.mjs`](./server/vision-proxy.mjs)
+It:
 
-Start it with:
+- accepts a base64 image payload
+- calls a hosted multimodal model
+- normalizes the response
+- returns `label`, `calories`, `protein`, `carbs`, `fat`, `confidence`, and `notes`
 
-```powershell
-npm run vision:server
-```
+### Environment Variables
 
-### Deploying the proxy for TestFlight
-
-TestFlight builds cannot reach a local LAN server on your computer, so the photo estimator needs a public backend URL before you ship this feature to testers.
-
-This repo includes deployment scaffolding for Render:
-
-- [`Dockerfile`](./Dockerfile)
-- [`render.yaml`](./render.yaml)
-
-Recommended Render setup:
-
-1. Create a new Web Service from this repo.
-2. Render will detect [`render.yaml`](./render.yaml).
-3. In Render, set the secret environment variable:
-
-```text
-HF_TOKEN=hf_your_token_here
-```
-
-4. After deployment, copy the public URL, for example:
-
-```text
-https://fitdiary-vision-proxy.onrender.com/estimate-fuel
-```
-
-5. Set that value as the app endpoint for builds:
-
-```text
-EXPO_PUBLIC_FITDIARY_VISION_ENDPOINT=https://fitdiary-vision-proxy.onrender.com/estimate-fuel
-```
-
-6. Rebuild the iOS app with EAS so TestFlight picks up the public endpoint.
-
-### Required environment variables
-
-Copy [`.env.example`](./.env.example) and provide:
+Copy [`.env.example`](./.env.example) to `.env` and set:
 
 ```text
 EXPO_PUBLIC_FITDIARY_VISION_ENDPOINT=http://localhost:8787/estimate-fuel
@@ -224,52 +150,25 @@ FITDIARY_VISION_MODEL=Qwen/Qwen2.5-VL-7B-Instruct
 FITDIARY_VISION_BASE_URL=https://router.huggingface.co/v1/chat/completions
 ```
 
-### Expected endpoint contract
+### Important Note for TestFlight
 
-The mobile app sends:
+For local testing, a LAN IP or `localhost` can work.
 
-- `imageBase64`
-- `mimeType`
-- `task`
-- `units`
+For TestFlight or any public release, the app must use a public HTTPS endpoint, for example:
 
-The proxy returns:
+```text
+https://fitdiary-vision-proxy.onrender.com/estimate-fuel
+```
 
-- `label`
-- `calories`
-- `protein`
-- `carbs`
-- `fat`
-- optional `confidence`
-- optional `notes`
+TestFlight builds cannot reach a private local address like:
 
-### Open-model recommendation
+```text
+http://192.168.x.x:8787
+```
 
-The current proxy is designed for an open vision model route and is a good fit for a Qwen2.5-VL style backend.
+## Running the App Locally
 
-Relevant source:
-
-- Hugging Face Inference Providers chat completion docs: https://huggingface.co/docs/inference-providers/tasks/chat-completion
-
-### Production note
-
-For local testing, a LAN IP is fine.
-
-For TestFlight or any public distribution, `EXPO_PUBLIC_FITDIARY_VISION_ENDPOINT` must point to a deployed HTTPS endpoint, not `localhost` or a private IP like `192.168.x.x`.
-
-### Important local testing note
-
-If you test on a real phone, `localhost` points to the phone, not your computer.
-
-For device testing, use either:
-
-- your computer’s LAN IP instead of `localhost`
-- a tunnel / reverse proxy
-- or a deployed backend endpoint
-
-## Getting Started
-
-### Install dependencies
+### Install Dependencies
 
 ```powershell
 npm install --legacy-peer-deps
@@ -281,121 +180,149 @@ npm install --legacy-peer-deps
 npx expo start
 ```
 
-### Start Expo on a specific port
+### Start Expo With Environment Variables
 
 ```powershell
-npx expo start --port 8084
+npm run start:env
 ```
 
-### Web preview
+### Start the Vision Proxy
 
 ```powershell
-npx expo start --port 8084
+npm run vision:server:env
 ```
 
-Then press `w` in the Expo terminal, or open:
+### Web Preview
 
-```text
-http://localhost:8084
+```powershell
+npx expo start --web
 ```
 
 ## Available Scripts
 
 ```powershell
 npm start
+npm run start:env
 npm run android
 npm run ios
 npm run web
 npm run vision:server
+npm run vision:server:env
 ```
 
-## TestFlight Flow
+## Deploying the Vision Proxy
 
-This repository includes [`eas.json`](./eas.json) for Expo Application Services builds.
+This repo includes Render deployment scaffolding:
 
-Typical iOS flow:
+- [`Dockerfile`](./Dockerfile)
+- [`render.yaml`](./render.yaml)
 
-1. Log in to Expo:
+### Recommended Render Flow
 
-```powershell
-npx eas login
+1. Create a new Web Service in Render from this repository.
+2. Let Render detect [`render.yaml`](./render.yaml).
+3. Add the secret environment variable:
+
+```text
+HF_TOKEN=hf_your_token_here
 ```
 
-2. Build the iOS production binary:
+4. Deploy the service.
+5. Copy the public URL.
+6. Set `EXPO_PUBLIC_FITDIARY_VISION_ENDPOINT` to:
+
+```text
+https://your-render-url/estimate-fuel
+```
+
+7. Rebuild the mobile app so the public endpoint is baked into the build.
+
+## iOS / TestFlight
+
+The repo is configured for Expo EAS builds and App Store Connect submission.
+
+### Build
 
 ```powershell
 npx eas build -p ios --profile production
 ```
 
-3. Submit the build to App Store Connect / TestFlight:
+### Submit
 
 ```powershell
 npx eas submit -p ios --profile production
 ```
 
-## Validation
+### App Identifiers
 
-Type-check the project with:
+- iOS bundle identifier: `fitdiary.fintery`
+- Android package: `fitdiary.fintery`
+- EAS project ID: `d72b4a36-38da-4164-81d3-25cbcd0c1ce5`
+
+## Validation Commands
+
+Type check:
 
 ```powershell
 npm exec --package typescript -- tsc --noEmit --pretty false
 ```
 
-Resolve Expo config with:
+Resolve Expo config:
 
 ```powershell
 npx expo config --type public
 ```
 
+Run Expo doctor:
+
+```powershell
+npx expo-doctor
+```
+
 ## Known Limitations
 
-- authentication is local-only
-- the leaderboard is local friend-circle state, not real-time multi-user sync
-- hydration rollover is based on reload/open behavior, not background timers
-- reminder scheduling is local-device only
-- meal-photo AI estimation requires a configured backend endpoint
-- photo-based nutrition is an estimate, not a medical-grade measurement
-- Android emulator support depends on a working Android SDK and `adb`
+- Authentication is local-only today.
+- The leaderboard is local friend-circle state, not real-time multi-user sync.
+- Reminders are local-device notifications only.
+- Hydration rollover depends on app open/reload behavior.
+- Meal-photo AI estimation depends on a configured backend endpoint.
+- Nutrition estimates are convenience estimates, not medical measurements.
+- Strava integration is not built yet.
 
 ## Roadmap
 
-### Near term
+### Next
 
-- connect the friend leaderboard to a real backend-backed model
-- add workout and meal search/filtering
-- improve validation and inline form feedback
-- connect the meal-photo proxy to a deployed vision endpoint
+- Deploy the meal-photo proxy publicly
+- Rebuild and ship a fresh TestFlight version
+- Replace local-only leaderboard data with true synced friend competition
+- Add better search and filters for workout and meal history
 
-### Medium term
+### Later
 
-- introduce a real backend auth/data model
-- add history views and calendar-based tracking
-- support goals and progress trends over time
-- add Strava sync
-- add test coverage for logging and persistence flows
+- Backend auth and user accounts
+- Redeemable friend invites
+- Synced goals and competitions
+- Strava integration
+- Analytics, charts, and longer-term progress views
 
-### Longer term
+## Contributor Notes
 
-- richer analytics and charts
-- wearables or health-platform integrations
-- fully synced social competitions
+- Keep [`App.tsx`](./App.tsx) as the top-level coordinator, not a monolith for every feature.
+- Put reusable UI into `src/components`.
+- Put screen-level layout into `src/screens`.
+- Put provider or external-service integrations into `src/services`.
+- Put shared helpers and persistence logic into `src/utils`.
+- Put shared app types into [`src/types/app.ts`](./src/types/app.ts).
 
-## Notes For Contributors
+## Status
 
-- `App.tsx` should remain a coordinator, not a catch-all feature file
-- shared types belong in [`src/types/app.ts`](./src/types/app.ts)
-- reusable UI belongs in `src/components`
-- screen-level UI belongs in `src/screens`
-- provider bridges belong in `src/services`
-- persistence helpers and shared logic belong in `src/utils`
+FitDiary is currently in a strong prototype-to-product transition state:
 
-## Current Status
+- polished mobile UI
+- stable local logging flows
+- TestFlight-ready Expo setup
+- backend-ready AI meal-photo architecture
+- social foundations already visible in the product
 
-FitDiary is in a solid local-development state:
-
-- Expo config resolves successfully
-- TypeScript passes
-- the app can be previewed locally with Expo
-- the TestFlight path is already in place
-
-The next major step for production readiness is wiring the social and meal-photo layers to real backend services.
+The next major production milestone is turning the local social and AI layers into fully deployed services.
