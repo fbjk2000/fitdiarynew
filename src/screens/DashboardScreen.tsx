@@ -3,7 +3,7 @@ import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { workoutLibrary } from '../constants/appData';
 import { styles } from '../styles/appStyles';
 import { GoalProgress, LeaderboardEntry, Workout } from '../types/app';
-import { accentForWorkout, initialsFromName } from '../utils/appHelpers';
+import { accentForWorkout, goalFrameColor, initialsFromName } from '../utils/appHelpers';
 
 type DashboardScreenProps = {
   firstName: string;
@@ -68,12 +68,12 @@ export function DashboardScreen(props: DashboardScreenProps) {
         </Text>
         <View style={styles.metricBar}>
           {[
-            { label: 'sessions', value: String(workoutsCount) },
-            { label: 'meals', value: String(mealsCount) },
-            { label: 'net cal', value: String(netCalories) },
-          ].map((item) => (
-            <View key={item.label} style={styles.metricItem}>
-              <Text style={styles.metricValue}>{item.value}</Text>
+            { label: 'sessions', value: String(workoutsCount), color: '#f4f7fb' },
+            { label: 'meals', value: String(mealsCount), color: '#69c8ff' },
+            { label: 'net cal', value: String(netCalories), color: netCalories >= 0 ? '#59d4a8' : '#ff9da5' },
+          ].map((item, index, items) => (
+            <View key={item.label} style={[styles.metricItem, index < items.length - 1 && styles.metricItemDivider]}>
+              <Text style={[styles.metricValue, { color: item.color }]}>{item.value}</Text>
               <Text style={styles.metricLabel}>{item.label}</Text>
             </View>
           ))}
@@ -89,6 +89,40 @@ export function DashboardScreen(props: DashboardScreenProps) {
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${Math.min(goalProgress.progress, 100)}%` }]} />
         </View>
+        <View style={styles.goalSummaryRow}>
+          <Text style={styles.goalSummaryValue}>
+            {goalProgress.currentValue} / {goalProgress.targetValue} {goalProgress.unit}
+          </Text>
+          <Text style={styles.goalSummaryMeta}>{goalProgress.timeframeLabel}</Text>
+        </View>
+        <Text style={styles.goalMilestoneHint}>Next milestone: {goalProgress.nextMilestoneLabel}</Text>
+      </View>
+
+      <View style={styles.panel}>
+        <Text style={styles.panelTitle}>Reward pulse</Text>
+        <View style={styles.rewardHero}>
+          <Text style={styles.rewardHeroEyebrow}>Hero unlocks</Text>
+          <Text style={styles.rewardHeroTitle}>{goalProgress.reward.title}</Text>
+          <Text style={styles.rewardHeroBody}>{goalProgress.reward.subtitle}</Text>
+          {goalProgress.reward.nextReward ? (
+            <Text style={styles.rewardHeroMeta}>Next unlock: {goalProgress.reward.nextReward}</Text>
+          ) : null}
+        </View>
+        {goalProgress.milestones.slice(0, 3).map((milestone) => (
+          <View key={milestone.id} style={styles.milestoneCard}>
+            <View style={styles.panelRow}>
+              <Text style={styles.milestoneTitle}>{milestone.title}</Text>
+              <Text style={styles.panelMeta}>{Math.round(milestone.progress)}%</Text>
+            </View>
+            <Text style={styles.milestoneMeta}>
+              {milestone.targetValue} {goalProgress.unit} by {new Date(milestone.dueDate).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}
+            </Text>
+            <Text style={styles.milestoneReward}>{milestone.rewardTitle}</Text>
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${Math.min(milestone.progress, 100)}%` }]} />
+            </View>
+          </View>
+        ))}
       </View>
 
       {renderHeaderCopy('Overview', 'Performance snapshot', 'A tighter glance at output, fuel, and recovery.')}
@@ -157,7 +191,14 @@ export function DashboardScreen(props: DashboardScreenProps) {
             <View style={styles.leaderRank}>
               <Text style={styles.leaderRankText}>{index + 1}</Text>
             </View>
-            <View style={styles.leaderAvatar}>
+            <View
+              style={[
+                styles.leaderAvatar,
+                entry.avatarFrameTone && entry.avatarFrameTone !== 'none'
+                  ? { borderColor: goalFrameColor(entry.avatarFrameTone) }
+                  : null,
+              ]}
+            >
               {entry.avatarUri ? (
                 <Image source={{ uri: entry.avatarUri }} style={styles.leaderAvatarImage} />
               ) : (

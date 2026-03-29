@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import * as Notifications from 'expo-notifications';
 import { StatusBar } from 'expo-status-bar';
@@ -14,6 +16,7 @@ import { analyzeFuelPhoto, fuelVisionConfigured } from './src/services/fuelVisio
 import { styles } from './src/styles/appStyles';
 import {
   FriendCircleMember,
+  GoalDraft,
   GoalType,
   Meal,
   MealDraft,
@@ -29,8 +32,11 @@ import {
   applyNutritionEstimate,
   buildInviteCode,
   calculateStreak,
+  createGoalPlan,
   createFriendCircleMember,
+  defaultGoalDraftForType,
   estimateNutritionFromMealName,
+  goalDraftFromPlan,
   goalProgressForUser,
   isValidTimeString,
   storageKeyForUser,
@@ -46,6 +52,37 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
+
+const mediaDirectory = (folder: 'avatars' | 'meal-photos') => `${FileSystem.documentDirectory ?? ''}${folder}/`;
+
+const getPersistentImageUri = async (
+  uri: string,
+  folder: 'avatars' | 'meal-photos',
+  maxWidth: number
+) => {
+  if (!uri) return undefined;
+  if (uri.startsWith('http://') || uri.startsWith('https://')) return uri;
+  if ((FileSystem.documentDirectory && uri.startsWith(FileSystem.documentDirectory)) || uri.includes(`${folder}/`)) {
+    return uri;
+  }
+
+  const fileInfo = await FileSystem.getInfoAsync(uri);
+  if (!fileInfo.exists) {
+    return undefined;
+  }
+
+  const manipulated = await manipulateAsync(
+    uri,
+    [{ resize: { width: maxWidth } }],
+    { compress: 0.78, format: SaveFormat.JPEG }
+  );
+
+  const directory = mediaDirectory(folder);
+  await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
+  const destination = `${directory}${folder}-${Date.now()}-${Math.round(Math.random() * 1_000_000)}.jpg`;
+  await FileSystem.copyAsync({ from: manipulated.uri, to: destination });
+  return destination;
+};
 
 export default function App() {
   const [hydrated, setHydrated] = useState(false);
@@ -65,6 +102,7 @@ export default function App() {
   const [friends, setFriends] = useState<FriendCircleMember[]>([]);
   const [friendName, setFriendName] = useState('');
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
+  const [goalDraft, setGoalDraft] = useState<GoalDraft>(goalDraftFromPlan(DEFAULT_PREFERENCES.activeGoal));
   const [newWorkout, setNewWorkout] = useState<WorkoutDraft>(EMPTY_WORKOUT);
   const [newMeal, setNewMeal] = useState<MealDraft>(EMPTY_MEAL);
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
@@ -88,9 +126,18 @@ export default function App() {
       const savedUser = await AsyncStorage.getItem(STORAGE_KEYS.user);
       if (savedUser) {
         const parsedUser = JSON.parse(savedUser) as User;
-        setUser(parsedUser);
+        const avatarUri = parsedUser.avatarUri
+          ? await getPersistentImageUri(parsedUser.avatarUri, 'avatars', 960)
+          : undefined;
+        const hydratedUser = avatarUri && avatarUri !== parsedUser.avatarUri
+          ? { ...parsedUser, avatarUri }
+          : parsedUser;
+        setUser(hydratedUser);
         setIsLoggedIn(true);
-        await loadUserScopedData(parsedUser.email);
+        if (hydratedUser !== parsedUser) {
+          await AsyncStorage.setItem(STORAGE_KEYS.user, JSON.stringify(hydratedUser));
+        }
+        await loadUserScopedData(hydratedUser.email);
       } else {
         resetLocalActivityState();
       }
@@ -119,13 +166,29 @@ export default function App() {
     ]);
 
     const parsedWorkouts = savedWorkouts ? (JSON.parse(savedWorkouts) as Workout[]) : [];
-    const parsedMeals = savedMeals ? (JSON.parse(savedMeals) as Meal[]) : [];
+    const rawMeals = savedMeals ? (JSON.parse(savedMeals) as Meal[]) : [];
+    const parsedMeals = await Promise.all(
+      rawMeals.map(async (meal) => {
+        if (!meal.photoUri) return meal;
+        const photoUri = await getPersistentImageUri(meal.photoUri, 'meal-photos', 1280);
+        if (photoUri === meal.photoUri) return meal;
+        return photoUri ? { ...meal, photoUri } : { ...meal, photoUri: undefined };
+      })
+    );
 
     setWorkouts(parsedWorkouts);
     setMeals(parsedMeals);
     setStreak(calculateStreak(parsedWorkouts));
     setFriends(savedFriends ? (JSON.parse(savedFriends) as FriendCircleMember[]) : []);
-    setPreferences(savedPreferences ? ({ ...DEFAULT_PREFERENCES, ...(JSON.parse(savedPreferences) as UserPreferences) }) : DEFAULT_PREFERENCES);
+    if (savedMeals && JSON.stringify(parsedMeals) !== JSON.stringify(rawMeals)) {
+      await AsyncStorage.setItem(mealsKey, JSON.stringify(parsedMeals));
+    }
+
+    const nextPreferences = savedPreferences
+      ? ({ ...DEFAULT_PREFERENCES, ...(JSON.parse(savedPreferences) as UserPreferences) })
+      : DEFAULT_PREFERENCES;
+    setPreferences(nextPreferences);
+    setGoalDraft(goalDraftFromPlan(nextPreferences.activeGoal));
 
     if (savedWater && savedWaterDate === todayKey()) {
       setWaterIntake(Number(savedWater) || 0);
@@ -168,6 +231,7 @@ export default function App() {
 
   const persistPreferences = async (nextPreferences: UserPreferences) => {
     setPreferences(nextPreferences);
+    setGoalDraft(goalDraftFromPlan(nextPreferences.activeGoal));
     if (!activeUserEmail) return;
     await AsyncStorage.setItem(storageKeyForUser(STORAGE_KEYS.preferences, activeUserEmail), JSON.stringify(nextPreferences));
   };
@@ -192,8 +256,8 @@ export default function App() {
   const inviteCode = buildInviteCode(user?.name ?? 'Athlete');
   const mealEstimate = estimateNutritionFromMealName(newMeal.name);
   const goalProgress = useMemo(
-    () => goalProgressForUser(preferences.primaryGoal, workouts, meals, waterProgress),
-    [meals, preferences.primaryGoal, waterProgress, workouts]
+    () => goalProgressForUser(preferences.activeGoal, workouts, meals, waterProgress),
+    [meals, preferences.activeGoal, waterProgress, workouts]
   );
   const starterLeaderboard = useMemo<LeaderboardEntry[]>(() => {
     const currentUserScore = workouts.length * 120 + meals.length * 45 + Math.round(waterProgress) * 3 + streak * 150;
@@ -208,14 +272,20 @@ export default function App() {
         streak,
         subtitle: `${workouts.length} workouts · ${meals.length} meals · ${waterIntake}ml`,
         isCurrentUser: true,
+        avatarFrameTone: goalProgress.reward.frame,
       },
     ].sort((a, b) => b.score - a.score);
-  }, [meals.length, streak, user?.name, waterIntake, waterProgress, workouts.length]);
+  }, [goalProgress.reward.frame, meals.length, streak, user?.name, waterIntake, waterProgress, workouts.length]);
   const leaderboard = useMemo<LeaderboardEntry[]>(() => {
     if (activeFriends.length === 0) {
       return starterLeaderboard.map((entry) =>
         entry.isCurrentUser
-          ? { ...entry, subtitle: `${workouts.length} workouts | ${meals.length} meals | ${waterIntake}ml`, avatarUri: user?.avatarUri }
+          ? {
+              ...entry,
+              subtitle: `${workouts.length} workouts | ${meals.length} meals | ${waterIntake}ml`,
+              avatarUri: user?.avatarUri,
+              avatarFrameTone: goalProgress.reward.frame,
+            }
           : entry
       );
     }
@@ -237,9 +307,10 @@ export default function App() {
         subtitle: `${workouts.length} workouts | ${meals.length} meals | ${waterIntake}ml`,
         isCurrentUser: true,
         avatarUri: user?.avatarUri,
+        avatarFrameTone: goalProgress.reward.frame,
       },
     ].sort((a, b) => b.score - a.score);
-  }, [activeFriends, meals.length, starterLeaderboard, streak, user?.avatarUri, user?.name, waterIntake, waterProgress, workouts.length]);
+  }, [activeFriends, goalProgress.reward.frame, meals.length, starterLeaderboard, streak, user?.avatarUri, user?.name, waterIntake, waterProgress, workouts.length]);
 
   const resetLocalActivityState = () => {
     setWorkouts([]);
@@ -249,6 +320,7 @@ export default function App() {
     setFriends([]);
     setFriendName('');
     setPreferences(DEFAULT_PREFERENCES);
+    setGoalDraft(goalDraftFromPlan(DEFAULT_PREFERENCES.activeGoal));
   };
 
   const openWorkoutCreate = () => {
@@ -440,7 +512,13 @@ export default function App() {
       return;
     }
 
-    await persistUser({ ...user, avatarUri: result.assets[0].uri });
+    const avatarUri = await getPersistentImageUri(result.assets[0].uri, 'avatars', 960);
+    if (!avatarUri) {
+      Alert.alert('Image unavailable', 'We could not save that profile photo right now. Please try again.');
+      return;
+    }
+
+    await persistUser({ ...user, avatarUri });
   };
 
   const selectMealPhoto = async (source: 'camera' | 'library') => {
@@ -473,9 +551,15 @@ export default function App() {
       return;
     }
 
+    const photoUri = await getPersistentImageUri(result.assets[0].uri, 'meal-photos', 1280);
+    if (!photoUri) {
+      Alert.alert('Image unavailable', 'We could not save that fuel photo right now. Please try again.');
+      return;
+    }
+
     setNewMeal((currentMeal) => ({
       ...currentMeal,
-      photoUri: result.assets[0].uri,
+      photoUri,
     }));
     setMealPhotoHint(fuelVisionConfigured() ? 'Photo ready. Analyze to prefill nutrition.' : 'Photo attached. Add a vision endpoint to enable AI prefills.');
   };
@@ -511,11 +595,12 @@ export default function App() {
     } catch (error) {
       console.error('Error analyzing meal photo', error);
       setMealPhotoHint('Photo analysis failed. You can still log the meal manually.');
+      const message = error instanceof Error ? error.message : 'We could not estimate this meal from the photo right now.';
       Alert.alert(
         'Analysis failed',
-        error instanceof Error && error.message.includes('unreachable')
+        message.includes('unreachable')
           ? 'The meal photo service is not reachable right now. You can still log the meal manually or use the text-based estimate.'
-          : 'We could not estimate this meal from the photo right now.'
+          : message
       );
     } finally {
       setIsAnalyzingMealPhoto(false);
@@ -523,7 +608,41 @@ export default function App() {
   };
 
   const updateGoal = async (goal: GoalType) => {
-    await persistPreferences({ ...preferences, primaryGoal: goal });
+    const nextDraft = defaultGoalDraftForType(goal);
+    setGoalDraft(nextDraft);
+  };
+
+  const saveGoalPlan = async () => {
+    const targetValue = Number(goalDraft.targetValue);
+    const currentValue = Number(goalDraft.currentValue || '0');
+    if (!goalDraft.title.trim()) {
+      Alert.alert('Goal title missing', 'Give your goal a clear title so the milestones feel real.');
+      return;
+    }
+    if (!Number.isFinite(targetValue) || targetValue <= 0) {
+      Alert.alert('Target missing', 'Add a target value greater than zero for this goal.');
+      return;
+    }
+    if (!Number.isFinite(currentValue) || currentValue < 0) {
+      Alert.alert('Progress invalid', 'Current progress should be zero or higher.');
+      return;
+    }
+    if (!goalDraft.endDate.trim()) {
+      Alert.alert('End date missing', 'Add an end date in YYYY-MM-DD format.');
+      return;
+    }
+    if (Number.isNaN(new Date(goalDraft.endDate).getTime())) {
+      Alert.alert('End date invalid', 'Use the format YYYY-MM-DD so FitDiary can build the milestone plan.');
+      return;
+    }
+
+    const plan = createGoalPlan(goalDraft);
+    await persistPreferences({ ...preferences, primaryGoal: goalDraft.type, activeGoal: plan });
+    Alert.alert('Goal saved', 'Your milestone path and reward track have been refreshed.');
+  };
+
+  const updateGoalDraftField = (field: keyof GoalDraft, value: string) => {
+    setGoalDraft((currentGoalDraft) => ({ ...currentGoalDraft, [field]: value }));
   };
 
   const saveReminders = async () => {
@@ -685,8 +804,10 @@ export default function App() {
                 streak={streak}
                 waterProgress={waterProgress}
                 avatarUri={user?.avatarUri}
-                primaryGoal={preferences.primaryGoal}
+                avatarFrameTone={goalProgress.reward.frame}
+                primaryGoal={goalDraft.type}
                 goalProgress={goalProgress}
+                goalDraft={goalDraft}
                 reminderSettings={preferences.reminderSettings}
                 latestWorkoutSummary={
                   latestWorkout
@@ -701,6 +822,8 @@ export default function App() {
                 friends={friends}
                 onPickProfileImage={() => void pickProfileImage()}
                 onGoalChange={(goal) => void updateGoal(goal)}
+                onGoalDraftChange={updateGoalDraftField}
+                onSaveGoal={() => void saveGoalPlan()}
                 onReminderChange={(field, value) =>
                   setPreferences({
                     ...preferences,

@@ -2,6 +2,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { PhotoNutritionEstimate } from '../types/app';
 
 type FuelVisionResponse = {
+  error?: string;
+  details?: string;
   label?: string;
   calories?: number | string;
   protein?: number | string;
@@ -37,7 +39,7 @@ export async function analyzeFuelPhoto(photoUri: string): Promise<PhotoNutrition
   });
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  const timeoutId = setTimeout(() => controller.abort(), 45000);
 
   let response: Response;
   try {
@@ -69,6 +71,11 @@ export async function analyzeFuelPhoto(photoUri: string): Promise<PhotoNutrition
   }
 
   if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as FuelVisionResponse | null;
+    const message = payload?.details || payload?.error;
+    if (message) {
+      throw new Error(message);
+    }
     throw new Error(`Fuel vision request failed with status ${response.status}`);
   }
 

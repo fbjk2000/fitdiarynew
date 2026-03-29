@@ -53,6 +53,7 @@ export type LeaderboardEntry = {
   subtitle: string;
   isCurrentUser?: boolean;
   avatarUri?: string;
+  avatarFrameTone?: GoalFrameTone;
 };
 
 export type FriendStatus = 'invited' | 'active';
@@ -68,6 +69,8 @@ export type FriendCircleMember = {
 };
 
 export type GoalType = 'lose-weight' | 'improve-cardio' | 'recover' | 'build-strength';
+export type GoalMetric = 'sessions' | 'reps' | 'kg-lost' | 'cardio-minutes';
+export type GoalFrameTone = 'none' | 'coral' | 'sky' | 'mint' | 'sand';
 
 export type ReminderSettings = {
   workoutTime: string;
@@ -75,15 +78,69 @@ export type ReminderSettings = {
   hydrationTime: string;
 };
 
+export type GoalMilestone = {
+  id: string;
+  title: string;
+  dueDate: string;
+  targetValue: number;
+  rewardTitle: string;
+  rewardFrame: GoalFrameTone;
+  completed: boolean;
+  progress: number;
+};
+
+export type GoalPlan = {
+  id: string;
+  title: string;
+  type: GoalType;
+  metric: GoalMetric;
+  unit: string;
+  startDate: string;
+  endDate: string;
+  targetValue: number;
+  currentValue: number;
+  milestones: GoalMilestone[];
+};
+
+export type GoalDraft = {
+  title: string;
+  type: GoalType;
+  metric: GoalMetric;
+  targetValue: string;
+  currentValue: string;
+  endDate: string;
+};
+
 export type UserPreferences = {
   primaryGoal: GoalType;
   reminderSettings: ReminderSettings;
+  activeGoal: GoalPlan;
+};
+
+export type GoalReward = {
+  title: string;
+  subtitle: string;
+  frame: GoalFrameTone;
+  completedMilestones: number;
+  totalMilestones: number;
+  nextReward?: string;
 };
 
 export type GoalProgress = {
   title: string;
   body: string;
   progress: number;
+  metricLabel: string;
+  currentValue: number;
+  targetValue: number;
+  unit: string;
+  timeframeLabel: string;
+  nextMilestoneLabel: string;
+  nextMilestoneProgress: number;
+  completedMilestones: number;
+  totalMilestones: number;
+  reward: GoalReward;
+  milestones: GoalMilestone[];
 };
 
 export type NutritionEstimate = {

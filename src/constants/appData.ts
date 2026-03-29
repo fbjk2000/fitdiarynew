@@ -1,4 +1,5 @@
-import { GoalType, MealDraft, ReminderSettings, Tab, UserPreferences, Workout, WorkoutDraft } from '../types/app';
+import { GoalMetric, GoalType, MealDraft, ReminderSettings, Tab, UserPreferences, Workout, WorkoutDraft } from '../types/app';
+import { createGoalPlan, defaultGoalDraftForType } from '../utils/appHelpers';
 
 export const STORAGE_KEYS = {
   user: 'fitdiary.user',
@@ -35,6 +36,7 @@ export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
 export const DEFAULT_PREFERENCES: UserPreferences = {
   primaryGoal: 'improve-cardio',
   reminderSettings: DEFAULT_REMINDER_SETTINGS,
+  activeGoal: createGoalPlan(defaultGoalDraftForType('improve-cardio')),
 };
 
 export const goalOptions: Array<{ key: GoalType; title: string; description: string }> = [
@@ -42,6 +44,13 @@ export const goalOptions: Array<{ key: GoalType; title: string; description: str
   { key: 'improve-cardio', title: 'Improve cardio fitness', description: 'Prioritize conditioning sessions and steady weekly output.' },
   { key: 'recover', title: 'Recover', description: 'Use mobility, hydration, and lighter fueling to rebuild rhythm.' },
   { key: 'build-strength', title: 'Build strength', description: 'Lean into strength sessions and recovery consistency.' },
+];
+
+export const goalMetricOptions: Array<{ key: GoalMetric; title: string; unit: string }> = [
+  { key: 'reps', title: 'Reps', unit: 'reps' },
+  { key: 'sessions', title: 'Sessions', unit: 'sessions' },
+  { key: 'kg-lost', title: 'Kg lost', unit: 'kg' },
+  { key: 'cardio-minutes', title: 'Cardio min', unit: 'min' },
 ];
 
 export const workoutLibrary: Array<Omit<Workout, 'date'>> = [
