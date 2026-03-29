@@ -20,6 +20,7 @@ type DashboardScreenProps = {
   onAddWater: (amount: number) => void;
   onOpenWorkoutCreate: () => void;
   onOpenMealCreate: () => void;
+  onOpenProfile: () => void;
   onQuickAddWorkout: (workout: Omit<Workout, 'date'>) => void;
 };
 
@@ -39,6 +40,7 @@ export function DashboardScreen(props: DashboardScreenProps) {
     onAddWater,
     onOpenWorkoutCreate,
     onOpenMealCreate,
+    onOpenProfile,
     onQuickAddWorkout,
   } = props;
 
@@ -81,9 +83,11 @@ export function DashboardScreen(props: DashboardScreenProps) {
       </View>
 
       <View style={styles.panel}>
-        <View style={styles.panelRow}>
-          <Text style={styles.panelTitle}>{goalProgress.title}</Text>
-          <Text style={styles.panelMeta}>{Math.round(goalProgress.progress)}%</Text>
+        <View style={styles.goalHeader}>
+          <Text style={styles.goalHeaderTitle}>{goalProgress.title}</Text>
+          <View style={styles.goalHeaderPill}>
+            <Text style={styles.goalHeaderPillText}>{Math.round(goalProgress.progress)}%</Text>
+          </View>
         </View>
         <Text style={styles.profileBody}>{goalProgress.body}</Text>
         <View style={styles.progressTrack}>
@@ -98,7 +102,7 @@ export function DashboardScreen(props: DashboardScreenProps) {
         <Text style={styles.goalMilestoneHint}>Next milestone: {goalProgress.nextMilestoneLabel}</Text>
       </View>
 
-      <View style={styles.panel}>
+      <TouchableOpacity style={styles.panel} activeOpacity={0.9} onPress={onOpenProfile}>
         <Text style={styles.panelTitle}>Reward pulse</Text>
         <View style={styles.rewardHero}>
           <Text style={styles.rewardHeroEyebrow}>Hero unlocks</Text>
@@ -123,7 +127,8 @@ export function DashboardScreen(props: DashboardScreenProps) {
             </View>
           </View>
         ))}
-      </View>
+        <Text style={styles.rewardPulseAction}>Open full reward track</Text>
+      </TouchableOpacity>
 
       {renderHeaderCopy('Overview', 'Performance snapshot', 'A tighter glance at output, fuel, and recovery.')}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cardRow}>

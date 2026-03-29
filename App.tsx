@@ -62,13 +62,14 @@ const getPersistentImageUri = async (
 ) => {
   if (!uri) return undefined;
   if (uri.startsWith('http://') || uri.startsWith('https://')) return uri;
-  if ((FileSystem.documentDirectory && uri.startsWith(FileSystem.documentDirectory)) || uri.includes(`${folder}/`)) {
-    return uri;
-  }
 
   const fileInfo = await FileSystem.getInfoAsync(uri);
   if (!fileInfo.exists) {
     return undefined;
+  }
+
+  if ((FileSystem.documentDirectory && uri.startsWith(FileSystem.documentDirectory)) || uri.includes(`${folder}/`)) {
+    return uri;
   }
 
   const manipulated = await manipulateAsync(
@@ -129,8 +130,12 @@ export default function App() {
         const avatarUri = parsedUser.avatarUri
           ? await getPersistentImageUri(parsedUser.avatarUri, 'avatars', 960)
           : undefined;
-        const hydratedUser = avatarUri && avatarUri !== parsedUser.avatarUri
-          ? { ...parsedUser, avatarUri }
+        const hydratedUser = parsedUser.avatarUri
+          ? avatarUri
+            ? avatarUri !== parsedUser.avatarUri
+              ? { ...parsedUser, avatarUri }
+              : parsedUser
+            : { ...parsedUser, avatarUri: undefined }
           : parsedUser;
         setUser(hydratedUser);
         setIsLoggedIn(true);
@@ -598,7 +603,9 @@ export default function App() {
       const message = error instanceof Error ? error.message : 'We could not estimate this meal from the photo right now.';
       Alert.alert(
         'Analysis failed',
-        message.includes('unreachable')
+        message.toLowerCase().includes('sufficient permissions')
+          ? 'The meal photo service is live, but its Hugging Face token does not currently have permission to call inference providers. Update HF_TOKEN on Render, then try again. You can still log the meal manually right now.'
+          : message.includes('unreachable')
           ? 'The meal photo service is not reachable right now. You can still log the meal manually or use the text-based estimate.'
           : message
       );
@@ -781,6 +788,7 @@ export default function App() {
                 onAddWater={(amount) => void addWater(amount)}
                 onOpenWorkoutCreate={openWorkoutCreate}
                 onOpenMealCreate={openMealCreate}
+                onOpenProfile={() => setActiveTab('profile')}
                 onQuickAddWorkout={(workout) => void saveWorkout({ ...workout })}
               />
             )}

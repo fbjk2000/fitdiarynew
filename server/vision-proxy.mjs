@@ -176,7 +176,11 @@ const server = http.createServer(async (request, response) => {
 
     if (!upstreamResponse.ok) {
       const errorText = await upstreamResponse.text();
+      const normalizedDetails = errorText.includes('sufficient permissions')
+        ? 'The configured Hugging Face token does not currently have permission to call inference providers. Update HF_TOKEN on the server with a token that can use Inference Providers.'
+        : errorText;
       const result = json(502, { error: 'Upstream model request failed.', details: errorText });
+      result.payload = JSON.stringify({ error: 'Upstream model request failed.', details: normalizedDetails });
       response.writeHead(result.statusCode, result.headers);
       response.end(result.payload);
       return;

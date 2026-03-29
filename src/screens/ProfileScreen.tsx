@@ -80,6 +80,7 @@ export function ProfileScreen(props: ProfileScreenProps) {
 
   const activeFriends = friends.filter((friend) => friend.status === 'active');
   const invitedFriends = friends.filter((friend) => friend.status === 'invited');
+  const [avatarFailed, setAvatarFailed] = React.useState(false);
   const avatarFrameStyle = avatarFrameTone === 'none'
     ? null
     : {
@@ -91,8 +92,8 @@ export function ProfileScreen(props: ProfileScreenProps) {
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.screenContent}>
       <View style={styles.profileHero}>
         <TouchableOpacity style={[styles.avatarCircleLarge, avatarFrameStyle]} onPress={onPickProfileImage}>
-          {avatarUri ? (
-            <Image source={{ uri: avatarUri }} style={styles.avatarCircleImage} />
+          {avatarUri && !avatarFailed ? (
+            <Image source={{ uri: avatarUri }} style={styles.avatarCircleImage} onError={() => setAvatarFailed(true)} />
           ) : (
             <Text style={styles.avatarText}>{firstName.slice(0, 2).toUpperCase()}</Text>
           )}
